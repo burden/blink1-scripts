@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# this script will check the http status of any resource, then blink green upon 200, or red upon anything else
+# note: upon exit, this script will resume playback of saved pattern
+# todo: accept device IDs
+# todo: read last received status code (currently reads first status)
+
+# requirements: blink(1) device, and wget or curl
+
+function init {
+# turn white to indicate working
+	blink1-tool -m 500 --rgb 0x99,0x99,0x99
+	sleep 0.5s
+	blink1-tool -m 500 --rgb 0xDD,0xDD,0xDD
+	sleep 0.5s
+}
+
+function quit {
+# resume saved pattern
+	# turn off
+	blink1-tool --off -m 1000
+	sleep 1s
+	# resume defaults
+	blink1-tool --play 1
+}
+
+function success {
+	# turn off
+	blink1-tool --off -m 1000
+	sleep 1s
+	# turn on green for SUCCESS!
+	echo $1 is ok
+	blink1-tool -m 1000 --rgb 0xFF,0xFF,0x00
+	#read -p "Press [Enter] key to continue..."
+	sleep 5s # display for 5 seconds
+}
+
+function fail {
+	# turn off
+    blink1-tool --off -m 1000
+	sleep 1s
+	# turn on red for ERROR!
+	echo $1 failed with status $2
+	blink1-tool -m 1000 --rgb 0xFF,0x00,0x00
+	#read -p "Press [Enter] key to continue..."
+	sleep 5s
+}
+
+function check_command {
+	command -v $1 > /dev/null && return 0 || return 1
+}
+
+function check_site {	
+	if  check_command "wget" ; then
+		status=`wget --spider -S "$1" 2>&1 | grep "HTTP/" | awk '{print $2}'`
+	else
+		status=`curl -ILs $1 | grep "HTTP/" | awk '{print $2}'`
+	fi
+}
+
+init
+check_site $1
+if [ "$status" = "200" ]; then
+	success $1
+else
+	fail $1 $status
+fi
+quit
